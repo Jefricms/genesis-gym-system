@@ -4,22 +4,14 @@ const cors = require('cors');
 
 const app = express();
 
-// 1. CONFIGURACIÓN DE CORS MANUAL Y ESTRICTA (Evita bloqueos del navegador en GitHub Pages)
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    
-    // Si el navegador envía una petición de verificación previa (OPTIONS), responder con éxito de inmediato
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
-    }
-    next();
-});
+// 1. CONFIGURACIÓN OFICIAL Y DEPURADA DE CORS (Resuelve preflight OPTIONS de forma automática)
+app.use(cors({
+    origin: '*', // Da acceso libre a cualquier origen, incluyendo tu GitHub Pages
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
 
-// Middlewares para lectura de cuerpos de peticiones
-app.use(express.json()); // Indispensable para leer req.body en JSON estándar
-app.use(express.text({ type: '*/*' })); // Permite capturar e interpretar peticiones enviadas como text/plain
+app.use(express.json()); // Único middleware necesario para procesar el req.body estándar en JSON
 
 // 2. CONEXIÓN A LA BASE DE DATOS
 const db = mysql.createConnection({
@@ -37,20 +29,9 @@ db.connect((err) => {
 
 // --- AUTENTICACIÓN INDIVIDUALIZADA ---
 
-// 1. Registro (Optimizado para procesar text/plain y JSON sin dar 404 ni problemas de CORS)
+// 1. Registro (Flujo estándar JSON limpio y mapeo doble de variables de respuesta)
 app.post('/api/register', (req, res) => {
-    let datos = req.body;
-
-    // Si los datos llegan como un string debido al Content-Type de texto plano, se parsean manualmente
-    if (typeof req.body === 'string') {
-        try {
-            datos = JSON.parse(req.body);
-        } catch (e) {
-            return res.status(400).json({ error: 'Formato de datos de texto plano inválido.' });
-        }
-    }
-
-    const { nombre, email } = datos;
+    const { nombre, email } = req.body;
 
     if (!nombre || !email) {
         return res.status(400).json({ error: 'Todos los campos son obligatorios' });
@@ -62,7 +43,7 @@ app.post('/api/register', (req, res) => {
     const codigoMiembro = `IFG-${randomNum}-${primerNombre}`;
     const hoy = new Date().toISOString().split('T')[0];
 
-    // Usamos NOW() directamente para evitar fallos estrictos de zonas horarias en producción
+    // Usamos NOW() directamente para evitar fallos estrictos de formato de fecha en producción
     const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, NOW(), ?)';
     db.query(query, [nombre, email, codigoMiembro], (err, result) => {
         if (err) {
@@ -73,8 +54,7 @@ app.post('/api/register', (req, res) => {
             return res.status(500).json({ error: 'Error interno de base de datos' });
         }
 
-        // Enviamos las variables estructuradas en español, inglés y anidadas en "user" 
-        // para asegurar que coincidan al 100% con las llamadas de tu frontend
+        // Estructura de respuesta compatible al 100% con los mapeos de tu frontend
         res.json({
             success: true,
             id: result.insertId,
@@ -170,7 +150,6 @@ app.post('/api/metodos', (req, res) => {
 
     console.log('POST /api/metodos recibido:', { usuario_id, type, last4, phone });
 
-    // Determinar criterio de duplicado según tipo
     let selectQuery, selectParams;
     if (type === 'card') {
         if (!last4) return res.status(400).json({ error: 'last4 requerido para tarjetas' });
@@ -178,43 +157,3 @@ app.post('/api/metodos', (req, res) => {
         selectParams = [usuario_id, type, last4];
     } else if (type === 'yape') {
         if (!phone) return res.status(400).json({ error: 'phone requerido para yape' });
-        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND yape_telefono = ?';
-        selectParams = [usuario_id, type, phone];
-    } else {
-        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND titular_nombre = ?';
-        selectParams = [usuario_id, type, holder || null];
-    }
-
-    db.query(selectQuery, selectParams, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.length > 0) {
-            return res.json({ success: true, existing: true, id: results[0].id });
-        }
-
-        const finalId = id || null;
-
-        const insertQuery = `
-            INSERT INTO metodos_pago (id, usuario_id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `;
-        const insertParams = [
-            finalId,
-            usuario_id,
-            type,
-            type === 'card' ? brand : null,
-            type === 'card' ? last4 : null,
-            type === 'card' ? expiry : null,
-            type === 'yape' ? phone : null,
-            holder || null
-        ];
-
-        db.query(insertQuery, insertParams, (err, result) => {
-            if (err) return res.status(500).json({ error: err.message });
-            return res.json({ success: true, existing: false, id: finalId || result.insertId });
-        });
-    });
-});
-
-// Clever Cloud inyecta el puerto correcto en process.env.PORT
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));

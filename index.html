@@ -654,13 +654,14 @@
             loginBtn.disabled = true;
             loginBtn.innerHTML = 'Autenticando...';
 
-            fetch('https://app-56a08756-b255-44fc-bb88-dd8afb7b2853.cleverapps.io/api/login', {
+            // Cambia el fetch de processRegister para que quede exactamente así:
+            fetch('https://app-56a08756-b255-44fc-bb88-dd8afb7b2853.cleverapps.io/api/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: email })
+                headers: { 'Content-Type': 'application/json' }, // <-- Regresamos al estándar
+                body: JSON.stringify({ nombre: nombre, email: email })
             })
-            .then(response => {
-                if (!response.ok) throw new Error('Credenciales inválidas');
+            .then(response => { 
+                if (!response.ok) throw new Error('Error al registrar');
                 return response.json();
             })
             .then(data => { 
@@ -669,9 +670,8 @@
             })
             .catch(error => {
                 console.error(error);
-                loginBtn.disabled = false;
-                loginBtn.innerHTML = 'Entrar al Panel';
-                showToast("Correo no registrado. Intenta registrarte.", "error");
+                registerBtn.disabled = false;
+                showToast("Error al registrar cuenta.", "error");
             });
         }
 
