@@ -1,82 +1,44 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Iron Forge Gym - MODO TEST</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; }
-        .page-view { transition: opacity 0.2s; }
-        .bg-yape { background-color: #742474; }
-    </style>
-</head>
-<body class="text-gray-100 min-h-screen flex flex-col">
+<script>
+    // ... (variables y configuración igual)
 
-    <!-- [MENÚ MANTENIDO IGUAL] -->
-    <header class="bg-slate-900 border-b border-slate-800 p-4">
-        <div class="max-w-7xl mx-auto flex justify-between items-center">
-            <span class="text-xl font-black text-white">IRON<span class="text-lime-400">FORGE</span> (TEST MODE)</span>
-            <span id="nav-user-name" class="text-lime-400 font-bold">Invitado</span>
-        </div>
-    </header>
+    // FUNCIONES CON URL ACTUALIZADA A RENDER
+    function processLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById('login-email').value;
+        // URL ACTUALIZADA
+        fetch('https://genesis-gym-system.onrender.com/api/login', {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email })
+        })
+        .then(r => r.json())
+        .then(data => { 
+            localStorage.setItem('usuario_activo', JSON.stringify(data.user));
+            completarAutenticacionExito(data.user); 
+        })
+        .catch(err => showToast("Error de conexión con Render.", "error"));
+    }
 
-    <main class="flex-grow p-4">
-        <!-- Contenido simplificado para prueba -->
-        <div id="page-inicio" class="page-view max-w-2xl mx-auto mt-10">
-            <h1 class="text-3xl font-bold text-white mb-4">Bienvenido al Modo Test</h1>
-            <p class="text-gray-400 mb-6">Puedes registrarte y probar el flujo de pagos localmente.</p>
-            <button onclick="document.getElementById('login-modal').classList.remove('hidden')" class="bg-lime-400 text-slate-950 px-6 py-2 rounded-lg font-bold">Iniciar / Registrar</button>
-        </div>
-    </main>
+    function processRegister(e) {
+        e.preventDefault();
+        const nombre = document.getElementById('reg-name').value;
+        const email = document.getElementById('reg-email').value;
+        // URL ACTUALIZADA
+        fetch('https://genesis-gym-system.onrender.com/api/register', {
+            method: 'POST',
+            mode: 'cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nombre: nombre, email: email })
+        })
+        .then(r => r.json())
+        .then(data => { 
+            localStorage.setItem('usuario_activo', JSON.stringify(data.user));
+            completarAutenticacionExito(data.user); 
+        })
+        .catch(err => showToast("Error en registro.", "error"));
+    }
 
-    <!-- [MODAL DE LOGIN/REGISTRO MODIFICADO] -->
-    <div id="login-modal" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
-        <div class="bg-slate-900 p-8 rounded-3xl w-full max-w-sm">
-            <h2 class="text-white text-xl font-bold mb-4">Test Login/Register</h2>
-            <form id="auth-form" onsubmit="handleAuth(event)">
-                <input type="text" id="test-name" placeholder="Nombre" class="w-full bg-slate-800 p-2 mb-2 rounded text-white" required>
-                <input type="email" id="test-email" placeholder="email@test.com" class="w-full bg-slate-800 p-2 mb-4 rounded text-white" required>
-                <button type="submit" class="w-full bg-lime-400 py-2 rounded font-bold">Entrar (Guardar Local)</button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // LÓGICA DE TEST LOCAL
-        let userProfile = JSON.parse(localStorage.getItem('test_user')) || null;
-        let paymentHistory = JSON.parse(localStorage.getItem('test_history')) || [];
-
-        function handleAuth(e) {
-            e.preventDefault();
-            const user = {
-                id: Date.now(),
-                nombre: document.getElementById('test-name').value,
-                email: document.getElementById('test-email').value,
-                codigo_miembro: "TEST-" + Math.floor(Math.random()*1000)
-            };
-            localStorage.setItem('test_user', JSON.stringify(user));
-            userProfile = user;
-            document.getElementById('login-modal').classList.add('hidden');
-            document.getElementById('nav-user-name').innerText = user.nombre;
-            alert("Usuario guardado localmente!");
-        }
-
-        // Función para simular pago sin servidor
-        function processGymPayment(planName, price) {
-            const tx = {
-                id: 'TX-' + Date.now(),
-                date: new Date().toISOString(),
-                concept: planName,
-                amount: price,
-                methodType: "Tarjeta (Local)"
-            };
-            paymentHistory.unshift(tx);
-            localStorage.setItem('test_history', JSON.stringify(paymentHistory));
-            alert("Pago simulado guardado en navegador!");
-            console.log("Historial actual:", paymentHistory);
-        }
-    </script>
-</body>
-</html>
+    // He actualizado también los fetch de metodos e historial dentro de completarAutenticacion
