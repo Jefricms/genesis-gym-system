@@ -116,9 +116,9 @@ app.get('/api/metodos', (req, res) => {
     });
 });
 
-// 6. Guardar tarjeta del usuario activo
+// 6. Guardar tarjeta del usuario activo (Corregido para sincronizar IDs híbridos)
 app.post('/api/metodos', (req, res) => {
-    const { usuario_id, type, brand, last4, expiry, phone, holder } = req.body;
+    const { id, usuario_id, type, brand, last4, expiry, phone, holder } = req.body;
     if (!usuario_id || !type) return res.status(400).json({ error: 'usuario_id y type son requeridos' });
 
     console.log('POST /api/metodos recibido:', { usuario_id, type, last4, phone });
@@ -134,7 +134,6 @@ app.post('/api/metodos', (req, res) => {
         selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND yape_telefono = ?';
         selectParams = [usuario_id, type, phone];
     } else {
-        // criterio genérico: evitar duplicados exactos por campo holder + tipo
         selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND titular_nombre = ?';
         selectParams = [usuario_id, type, holder || null];
     }
@@ -142,16 +141,18 @@ app.post('/api/metodos', (req, res) => {
     db.query(selectQuery, selectParams, (err, results) => {
         if (err) return res.status(500).json({ error: err.message });
         if (results.length > 0) {
-            // Ya existe: devolver éxito indicando que es existente
             return res.json({ success: true, existing: true, id: results[0].id });
         }
 
-        // No existe: insertar sin campo id (dejar que la BD cree el id)
+        // Usar el ID temporal del frontend si existe, si no, dejar que MySQL use autoincrement
+        const finalId = id || null;
+
         const insertQuery = `
-            INSERT INTO metodos_pago (usuario_id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO metodos_pago (id, usuario_id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const insertParams = [
+            finalId,
             usuario_id,
             type,
             type === 'card' ? brand : null,
@@ -163,7 +164,7 @@ app.post('/api/metodos', (req, res) => {
 
         db.query(insertQuery, insertParams, (err, result) => {
             if (err) return res.status(500).json({ error: err.message });
-            return res.json({ success: true, existing: false, id: result.insertId });
+            return res.json({ success: true, existing: false, id: finalId || result.insertId });
         });
     });
 });
