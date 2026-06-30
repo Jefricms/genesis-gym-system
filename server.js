@@ -30,12 +30,13 @@ app.use((req, res, next) => {
 app.use(express.json());
 
 // 3. Conexión a Base de Datos
+// 3. Conexión a Base de Datos usando las variables de Clever Cloud
 const db = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: 3306
+    host: process.env.MYSQL_ADDON_HOST,
+    user: process.env.MYSQL_ADDON_USER,
+    password: process.env.MYSQL_ADDON_PASSWORD,
+    database: process.env.MYSQL_ADDON_DB,
+    port: process.env.MYSQL_ADDON_PORT || 3306
 });
 
 // --- RUTAS ---
