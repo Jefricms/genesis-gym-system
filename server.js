@@ -4,16 +4,29 @@ const cors = require('cors');
 
 const app = express();
 
-// Configuración de CORS para aceptar peticiones desde tu GitHub Pages
+// 1. Configuración de CORS estricta y funcional
 app.use(cors({
-    origin: '*', // Permite conexiones desde cualquier origen
+    origin: '*', // Permitir desde cualquier origen para depuración
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// 2. Middleware explícito para asegurar cabeceras en todas las respuestas
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    
+    // Si es una petición OPTIONS, responder inmediatamente con OK
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+
 app.use(express.json());
 
-// Conexión a la base de datos usando variables de entorno
+// 3. Conexión a la base de datos
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -27,7 +40,7 @@ db.connect((err) => {
     else console.log("¡Conectado exitosamente a la base de datos!");
 });
 
-// --- RUTAS DE EJEMPLO ---
+// --- RUTAS ---
 
 app.post('/api/register', (req, res) => {
     const { nombre, email } = req.body;
@@ -54,6 +67,5 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// Puerto configurado para Clever Cloud
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
