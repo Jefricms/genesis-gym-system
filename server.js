@@ -1,48 +1,156 @@
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
+
 const app = express();
 
-// Configuración de CORS de alto nivel
 app.use(cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
-
-// Middleware de seguridad manual para garantizar el CORS
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).send();
-    }
-    next();
-});
-
-
 app.use(express.json());
 
-// 3. Conexión a Base de Datos
-// 3. Conexión a Base de Datos usando las variables de Clever Cloud
+// 2. CONEXIÓN A LA BASE DE DATOS
 const db = mysql.createConnection({
-    host: process.env.MYSQL_ADDON_HOST,
-    user: process.env.MYSQL_ADDON_USER,
-    password: process.env.MYSQL_ADDON_PASSWORD,
-    database: process.env.MYSQL_ADDON_DB,
-    port: process.env.MYSQL_ADDON_PORT || 3306
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: 3306
 });
 
-// --- RUTAS ---
+db.connect((err) => {
+    if (err) console.error("❌ Error de conexión a MySQL:", err);
+    else console.log("¡Conectado exitosamente a la base de datos!");
+});
+
+// --- TUS RUTAS (Mantenlas igual) ---
+
 app.post('/api/register', (req, res) => {
-    // Tu lógica de registro...
+    const { nombre, email } = req.body;
+    if (!nombre || !email) return res.status(400).json({ error: 'Campos obligatorios' });
+    
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    const primerNombre = nombre.split(' ')[0].toUpperCase();
+    const codigoMiembro = `IFG-${randomNum}-${primerNombre}`;
+    const hoy = new Date().toISOString().split('T')[0];
+
+    const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, NOW(), ?)';
+    db.query(query, [nombre, email, codigoMiembro], (err, result) => {
+        if (err) return res.status(500).json({ error: 'Error interno' });
+        res.json({ success: true, id: result.insertId, nombre, email, codigo_miembro: codigoMiembro });
+    });
 });
 
 app.post('/api/login', (req, res) => {
-    // Tu lógica de login...
+    const { email } = req.body;
+    const query = 'SELECT id, nombre, email, miembro_desde, codigo_miembro FROM usuarios WHERE LOWER(email) = LOWER(?)';
+    db.query(query, [email], (err, results) => {
+        if (err || results.length === 0) return res.status(401).json({ error: "No encontrado" });
+        const usuario = results[0];
+        res.json({ success: true, user: { id: usuario.id, name: usuario.nombre, email: usuario.email, memberId: usuario.codigo_miembro } });
+    });
+});
+// --- HISTORIAL INDIVIDUALIZADO ---
+
+// 3. Registrar Pago individual
+app.post('/api/historial', (req, res) => {
+    const { id, usuario_id, concept, amount, method, methodType } = req.body;
+    
+    const query = `
+        INSERT INTO historial_pagos (id, usuario_id, fecha, concepto, monto, metodo_utilizado, tipo_metodo, estado) 
+        VALUES (?, ?, NOW(), ?, ?, ?, ?, 'Completado')
+    `;
+    db.query(query, [id, usuario_id, concept, amount, method, methodType], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
 });
 
+// 4. Listar Historial individual (?usuario_id=...)
+app.get('/api/historial', (req, res) => {
+    const usuario_id = req.query.usuario_id;
+    if (!usuario_id) return res.status(400).json({ error: "usuario_id requerido" });
+
+    const query = 'SELECT id, fecha, concepto, monto, metodo_utilizado, tipo_metodo, estado FROM historial_pagos WHERE usuario_id = ? ORDER BY fecha DESC';
+    db.query(query, [usuario_id], (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results.map(p => ({
+            id: p.id, date: p.fecha, concept: p.concepto, amount: parseFloat(p.monto), 
+            method: p.metodo_utilizado, methodType: p.tipo_metodo, status: p.estado
+        })));
+    });
+});
+
+// --- BILLETERA INDIVIDUALIZADA ---
+
+// 5. Obtener tarjetas del usuario activo
+app.get('/api/metodos', (req, res) => {
+    const usuario_id = req.query.usuario_id;
+    if (!usuario_id) return res.status(400).json({ error: "usuario_id requerido" });
+
+    const query = 'SELECT id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre FROM metodos_pago WHERE usuario_id = ?';
+    db.query(query, [usuario_id], (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(results.map(pm => ({
+            id: pm.id, type: pm.tipo, brand: pm.tarjeta_marca, last4: pm.tarjeta_ultimos4, 
+            expiry: pm.tarjeta_expiracion, phone: pm.yape_telefono, holder: pm.titular_nombre
+        })));
+    });
+});
+
+// 6. Guardar tarjeta del usuario activo (Evita duplicados)
+app.post('/api/metodos', (req, res) => {
+    const { id, usuario_id, type, brand, last4, expiry, phone, holder } = req.body;
+    if (!usuario_id || !type) return res.status(400).json({ error: 'usuario_id y type son requeridos' });
+
+    console.log('POST /api/metodos recibido:', { usuario_id, type, last4, phone });
+
+    let selectQuery, selectParams;
+    if (type === 'card') {
+        if (!last4) return res.status(400).json({ error: 'last4 requerido para tarjetas' });
+        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND tarjeta_ultimos4 = ?';
+        selectParams = [usuario_id, type, last4];
+    } else if (type === 'yape') {
+        if (!phone) return res.status(400).json({ error: 'phone requerido para yape' });
+        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND yape_telefono = ?';
+        selectParams = [usuario_id, type, phone];
+    } else {
+        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND titular_nombre = ?';
+        selectParams = [usuario_id, type, holder || null];
+    }
+
+    db.query(selectQuery, selectParams, (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (results.length > 0) {
+            return res.json({ success: true, existing: true, id: results[0].id });
+        }
+
+        const finalId = id || null;
+
+        const insertQuery = `
+            INSERT INTO metodos_pago (id, usuario_id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const insertParams = [
+            finalId,
+            usuario_id,
+            type,
+            type === 'card' ? brand : null,
+            type === 'card' ? last4 : null,
+            type === 'card' ? expiry : null,
+            type === 'yape' ? phone : null,
+            holder || null
+        ];
+
+        db.query(insertQuery, insertParams, (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+            return res.json({ success: true, existing: false, id: finalId || result.insertId });
+        });
+    });
+});
+
+// Clever Cloud inyecta el puerto correcto en process.env.PORT
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Servidor en puerto ${PORT}`));
+app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
