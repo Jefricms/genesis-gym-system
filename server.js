@@ -168,4 +168,6 @@ app.post('/api/metodos', (req, res) => {
     });
 });
 
-app.listen(5000, () => console.log('Servidor corriendo de forma asíncrona en el puerto 5000'));
+// Clever Cloud inyecta el puerto correcto en process.env.PORT
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
