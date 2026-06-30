@@ -129,8 +129,11 @@ app.get('/api/historial', (req, res) => {
 // --- BILLETERA INDIVIDUALIZADA ---
 
 // 5. Obtener tarjetas del usuario activo
+// --- BILLETERA INDIVIDUALIZADA ---
+
+// 5. Obtener tarjetas del usuario activo
 app.get('/api/metodos', (req, res) => {
-    const usuario_id = req.query.usuario_id;
+    const usuario_id = req.query.usuario_id; // 🔥 CORREGIDO AQUÍ (Antes decía req.query.query.usuario_id)
     if (!usuario_id) return res.status(400).json({ error: "usuario_id requerido" });
 
     const query = 'SELECT id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre FROM metodos_pago WHERE usuario_id = ?';
