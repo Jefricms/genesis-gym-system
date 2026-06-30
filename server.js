@@ -164,3 +164,8 @@ app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
 
 
 // Forzando despliegue
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor escuchando en el puerto ${PORT}`);
+});
