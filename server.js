@@ -17,7 +17,6 @@ app.options('*', cors());
 
 // Asegurar que el middleware de cors se aplique a todo
 app.use(cors());
-app.options('*', cors());
 
 // 2. CONEXIÓN A LA BASE DE DATOS
 // En lugar de escribir la contraseña, usa process.env
