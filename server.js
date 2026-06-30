@@ -4,14 +4,14 @@ const cors = require('cors');
 
 const app = express();
 
-// Configuración explícita de CORS para permitir peticiones externas (GitHub Pages)
+// Configuración de CORS
 app.use(cors({
     origin: '*', 
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.use(express.json()); // Indispensable para leer req.body
+app.use(express.json());
 
 const db = mysql.createConnection({
     host: 'bavlfmstydp3ebghysz8-mysql.services.clever-cloud.com',
@@ -22,8 +22,27 @@ const db = mysql.createConnection({
 });
 
 db.connect((err) => {
-    if (err) console.error("❌ Error de conexión a MySQL en la nube:", err);
-    else console.log("¡Conectado exitosamente a la base de datos en Clever Cloud!");
+    if (err) {
+        console.error("❌ Error de conexión a MySQL en la nube:", err);
+    } else {
+        console.log("¡Conectado exitosamente a la base de datos en Clever Cloud!");
+        
+        // FORZAR ESTRUCTURA CORRECTA DE LA TABLA USUARIOS
+        const createTableQuery = `
+            CREATE TABLE IF NOT EXISTS usuarios (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                nombre VARCHAR(100) NOT NULL,
+                email VARCHAR(100) NOT NULL UNIQUE,
+                miembro_desde DATETIME DEFAULT NULL,
+                codigo_miembro VARCHAR(50) DEFAULT NULL,
+                qr_dinamico VARCHAR(255) DEFAULT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        `;
+        db.query(createTableQuery, (tableErr) => {
+            if (tableErr) console.error("❌ Error al verificar/crear la tabla usuarios:", tableErr);
+            else console.log("✅ Tabla 'usuarios' verificada y lista con estructura correcta.");
+        });
+    }
 });
 
 // --- AUTENTICACIÓN INDIVIDUALIZADA ---
@@ -42,15 +61,14 @@ app.post('/api/register', (req, res) => {
     const codigoMiembro = `IFG-${randomNum}-${primerNombre}`;
     const hoy = new Date().toISOString().split('T')[0];
 
-    // Usamos NOW() directamente en el campo miembro_desde para evitar fallos de formato estrictos
     const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, NOW(), ?)';
     db.query(query, [nombre, email, codigoMiembro], (err, result) => {
         if (err) {
-            console.error("❌ Error al insertar usuario en MySQL:", err);
+            console.error("❌ Error real en la consulta de MySQL:", err); // Esto saldrá en los logs de Clever Cloud
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(400).json({ error: 'El correo electrónico ya existe.' });
             }
-            return res.status(500).json({ error: 'Error interno de base de datos' });
+            return res.status(500).json({ error: 'Error interno de base de datos: ' + err.message });
         }
         res.json({
             success: true,
@@ -111,7 +129,7 @@ app.get('/api/historial', (req, res) => {
 
 // 5. Obtener tarjetas del usuario activo
 app.get('/api/metodos', (req, res) => {
-    const usuario_id = req.query.usuario_id;
+    const usuario_id = req.query.query.usuario_id;
     if (!usuario_id) return res.status(400).json({ error: "usuario_id requerido" });
 
     const query = 'SELECT id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre FROM metodos_pago WHERE usuario_id = ?';
@@ -131,7 +149,6 @@ app.post('/api/metodos', (req, res) => {
 
     console.log('POST /api/metodos recibido:', { usuario_id, type, last4, phone });
 
-    // Determinar criterio de duplicado según tipo
     let selectQuery, selectParams;
     if (type === 'card') {
         if (!last4) return res.status(400).json({ error: 'last4 requerido para tarjetas' });
@@ -152,7 +169,6 @@ app.post('/api/metodos', (req, res) => {
             return res.json({ success: true, existing: true, id: results[0].id });
         }
 
-        // Usar el ID temporal del frontend si existe, si no, null para autoincrement
         const finalId = id || null;
 
         const insertQuery = `
@@ -177,6 +193,5 @@ app.post('/api/metodos', (req, res) => {
     });
 });
 
-// Clever Cloud inyecta el puerto correcto en process.env.PORT
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
