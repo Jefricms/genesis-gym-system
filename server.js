@@ -4,15 +4,11 @@ const cors = require('cors');
 
 const app = express();
 
-// 1. CONFIGURACIÓN OFICIAL Y DEPURADA DE CORS (Resuelve preflight OPTIONS de forma automática)
-app.use(cors({
-    origin: '*', // Da acceso libre a cualquier origen, incluyendo tu GitHub Pages
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
-}));
+// Configuración simple y robusta
+app.use(cors()); // Permite todas las peticiones OPTIONS automáticamente
+app.use(express.json());
 
-app.use(express.json()); // Único middleware necesario para procesar el req.body estándar en JSON
-// Forzar la respuesta a OPTIONS para el preflight
+// --- TU CÓDIGO DE BASE DE DATOS Y RUTAS SIGUE AQUÍ ---
 app.options('*', cors()); 
 
 // Asegurar que el middleware de cors se aplique a todo
