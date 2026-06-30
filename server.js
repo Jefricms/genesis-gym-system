@@ -7,16 +7,16 @@ app.use(cors());
 app.use(express.json()); // Indispensable para leer req.body
 
 const db = mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'root',
-    password: '',
-    database: 'genesis_gym',
+    host: 'bve7byp8b898bov6wexg-mysql.services.clever-cloud.com',
+    user: 'uymf7pggvj6b66hy',
+    password: 'AQUÍ_COPIAS_LA_CONTRASEÑA_QUE_TE_DIO_CLEVER_CLOUD', // Haz clic en el ojo tachado de tu pantalla para verla y copiarla completa
+    database: 'bve7byp8b898bov6wexg',
     port: 3306
 });
 
 db.connect((err) => {
-    if (err) console.error("❌ Error de conexión a MySQL:", err);
-    else console.log("¡Conectado exitosamente a MySQL en XAMPP!");
+    if (err) console.error("❌ Error de conexión a MySQL en la nube:", err);
+    else console.log("¡Conectado exitosamente a la base de datos en Clever Cloud!");
 });
 
 // --- AUTENTICACIÓN INDIVIDUALIZADA ---
