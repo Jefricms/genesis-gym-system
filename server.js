@@ -4,13 +4,13 @@ const cors = require('cors');
 
 const app = express();
 
-// 1. CONFIGURACIÓN DE CORS MANUAL Y ESTRICTA (Pon esto arriba del todo)
+// 1. CONFIGURACIÓN DE CORS MANUAL Y ESTRICTA (Evita bloqueos del navegador en GitHub Pages)
 app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     
-    // Si es una petición Preflight (OPTIONS), responder con éxito de inmediato
+    // Si el navegador envía una petición de verificación previa (OPTIONS), responder con éxito de inmediato
     if (req.method === 'OPTIONS') {
         return res.sendStatus(200);
     }
@@ -19,6 +19,7 @@ app.use((req, res, next) => {
 
 app.use(express.json()); // Indispensable para leer req.body
 
+// 2. CONEXIÓN A LA BASE DE DATOS
 const db = mysql.createConnection({
     host: 'bavlfmstydp3ebghysz8-mysql.services.clever-cloud.com',
     user: 'upkauwp7eliqtarn',
@@ -34,7 +35,7 @@ db.connect((err) => {
 
 // --- AUTENTICACIÓN INDIVIDUALIZADA ---
 
-// 1. Registro (Optimizado con NOW() para evitar conflictos de formato de fecha en la nube)
+// 1. Registro (Optimizado con doble mapeo de propiedades para evitar congelamiento del frontend)
 app.post('/api/register', (req, res) => {
     const { nombre, email } = req.body;
 
@@ -42,13 +43,13 @@ app.post('/api/register', (req, res) => {
         return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
-    // Generar campos automáticos según tu base de datos
+    // Generar campos automáticos según tu lógica de negocio
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const primerNombre = nombre.split(' ')[0].toUpperCase();
     const codigoMiembro = `IFG-${randomNum}-${primerNombre}`;
     const hoy = new Date().toISOString().split('T')[0];
 
-    // Usamos NOW() directamente en el campo miembro_desde para evitar fallos de formato estrictos
+    // Usamos NOW() directamente para evitar fallos estrictos de zonas horarias en producción
     const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, NOW(), ?)';
     db.query(query, [nombre, email, codigoMiembro], (err, result) => {
         if (err) {
@@ -58,14 +59,33 @@ app.post('/api/register', (req, res) => {
             }
             return res.status(500).json({ error: 'Error interno de base de datos' });
         }
+
+        // Enviamos las variables estructuradas en español, inglés y anidadas en "user" 
+        // para asegurar que coincidan al 100% con las llamadas de tu frontend
         res.json({
             success: true,
-            user: { id: result.insertId, name: nombre, email: email, memberSince: hoy, memberId: codigoMiembro }
+            id: result.insertId,
+            usuario_id: result.insertId,
+            nombre: nombre,
+            email: email,
+            codigo_miembro: codigoMiembro,
+            miembro_desde: hoy,
+            user: { 
+                id: result.insertId, 
+                usuario_id: result.insertId,
+                name: nombre, 
+                nombre: nombre,
+                email: email, 
+                memberSince: hoy, 
+                miembro_desde: hoy,
+                memberId: codigoMiembro,
+                codigo_miembro: codigoMiembro
+            }
         });
     });
 });
 
-// 2. Login (Corregido con LOWER y campos correctos)
+// 2. Login (Corregido con LOWER para insensibilidad a mayúsculas)
 app.post('/api/login', (req, res) => {
     const { email } = req.body;
 
@@ -130,7 +150,7 @@ app.get('/api/metodos', (req, res) => {
     });
 });
 
-// 6. Guardar tarjeta del usuario activo (Sincronizado con IDs del frontend para evitar duplicados)
+// 6. Guardar tarjeta del usuario activo (Evita duplicados)
 app.post('/api/metodos', (req, res) => {
     const { id, usuario_id, type, brand, last4, expiry, phone, holder } = req.body;
     if (!usuario_id || !type) return res.status(400).json({ error: 'usuario_id y type son requeridos' });
@@ -158,7 +178,6 @@ app.post('/api/metodos', (req, res) => {
             return res.json({ success: true, existing: true, id: results[0].id });
         }
 
-        // Usar el ID temporal del frontend si existe, si no, null para autoincrement
         const finalId = id || null;
 
         const insertQuery = `
