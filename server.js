@@ -21,7 +21,7 @@ db.connect((err) => {
 
 // --- AUTENTICACIÓN INDIVIDUALIZADA ---
 
-// 1. Registro (Sincronizado con /api/register del HTML y campos reales de tu BD)
+// 1. Registro (Optimizado con NOW() para evitar conflictos de formato de fecha en la nube)
 app.post('/api/register', (req, res) => {
     const { nombre, email } = req.body;
 
@@ -29,16 +29,17 @@ app.post('/api/register', (req, res) => {
         return res.status(400).json({ error: 'Todos los campos son obligatorios' });
     }
 
-    // Generar campos automáticos según tu phpMyAdmin
+    // Generar campos automáticos según tu base de datos
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const primerNombre = nombre.split(' ')[0].toUpperCase();
     const codigoMiembro = `IFG-${randomNum}-${primerNombre}`;
     const hoy = new Date().toISOString().split('T')[0];
 
-    const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, ?, ?)';
-    db.query(query, [nombre, email, hoy, codigoMiembro], (err, result) => {
+    // Usamos NOW() directamente en el campo miembro_desde para evitar fallos de formato estrictos
+    const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, NOW(), ?)';
+    db.query(query, [nombre, email, codigoMiembro], (err, result) => {
         if (err) {
-            console.error(err);
+            console.error("❌ Error al insertar usuario en MySQL:", err);
             if (err.code === 'ER_DUP_ENTRY') {
                 return res.status(400).json({ error: 'El correo electrónico ya existe.' });
             }
@@ -116,7 +117,7 @@ app.get('/api/metodos', (req, res) => {
     });
 });
 
-// 6. Guardar tarjeta del usuario activo (Corregido para sincronizar IDs híbridos)
+// 6. Guardar tarjeta del usuario activo (Sincronizado con IDs del frontend para evitar duplicados)
 app.post('/api/metodos', (req, res) => {
     const { id, usuario_id, type, brand, last4, expiry, phone, holder } = req.body;
     if (!usuario_id || !type) return res.status(400).json({ error: 'usuario_id y type son requeridos' });
@@ -144,7 +145,7 @@ app.post('/api/metodos', (req, res) => {
             return res.json({ success: true, existing: true, id: results[0].id });
         }
 
-        // Usar el ID temporal del frontend si existe, si no, dejar que MySQL use autoincrement
+        // Usar el ID temporal del frontend si existe, si no, null para autoincrement
         const finalId = id || null;
 
         const insertQuery = `
