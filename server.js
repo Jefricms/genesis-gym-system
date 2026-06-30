@@ -129,11 +129,8 @@ app.get('/api/historial', (req, res) => {
 // --- BILLETERA INDIVIDUALIZADA ---
 
 // 5. Obtener tarjetas del usuario activo
-// --- BILLETERA INDIVIDUALIZADA ---
-
-// 5. Obtener tarjetas del usuario activo
 app.get('/api/metodos', (req, res) => {
-    const usuario_id = req.query.usuario_id; // 🔥 CORREGIDO AQUÍ (Antes decía req.query.query.usuario_id)
+    const usuario_id = req.query.usuario_id;
     if (!usuario_id) return res.status(400).json({ error: "usuario_id requerido" });
 
     const query = 'SELECT id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre FROM metodos_pago WHERE usuario_id = ?';
@@ -160,3 +157,43 @@ app.post('/api/metodos', (req, res) => {
         selectParams = [usuario_id, type, last4];
     } else if (type === 'yape') {
         if (!phone) return res.status(400).json({ error: 'phone requerido para yape' });
+        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND yape_telefono = ?';
+        selectParams = [usuario_id, type, phone];
+    } else {
+        selectQuery = 'SELECT id FROM metodos_pago WHERE usuario_id = ? AND tipo = ? AND titular_nombre = ?';
+        selectParams = [usuario_id, type, holder || null];
+    }
+
+    db.query(selectQuery, selectParams, (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (results.length > 0) {
+            return res.json({ success: true, existing: true, id: results[0].id });
+        }
+
+        const finalId = id || null;
+
+        const insertQuery = `
+            INSERT INTO metodos_pago (id, usuario_id, tipo, tarjeta_marca, tarjeta_ultimos4, tarjeta_expiracion, yape_telefono, titular_nombre)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        const insertParams = [
+            finalId,
+            usuario_id,
+            type,
+            type === 'card' ? brand : null,
+            type === 'card' ? last4 : null,
+            type === 'card' ? expiry : null,
+            type === 'yape' ? phone : null,
+            holder || null
+        ];
+
+        db.query(insertQuery, insertParams, (err, result) => {
+            if (err) return res.status(500).json({ error: err.message });
+            return res.json({ success: true, existing: false, id: finalId || result.insertId });
+        });
+    });
+});
+
+// Clever Cloud inyecta el puerto correcto en process.env.PORT
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Servidor corriendo en el puerto ${PORT}`));
