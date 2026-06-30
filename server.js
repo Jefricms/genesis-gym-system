@@ -1,31 +1,27 @@
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
-
 const app = express();
 
-// 1. Configuración de CORS más permisiva
+// Configuración de CORS de alto nivel
 app.use(cors({
     origin: '*',
-    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization']
 }));
 
-// 2. Middleware de "Fuerza Bruta" para CORS
-// Esto asegura que cada respuesta tenga las cabeceras necesarias, sin importar el middleware anterior
+// Middleware de seguridad manual para garantizar el CORS
 app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH, DELETE');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With,content-type,Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', true);
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     
-    // Si es OPTIONS, responder 200 inmediatamente
     if (req.method === 'OPTIONS') {
-        return res.status(200).end();
+        return res.status(200).send();
     }
     next();
 });
+
 
 app.use(express.json());
 
