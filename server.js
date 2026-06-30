@@ -12,13 +12,20 @@ app.use(cors({
 }));
 
 app.use(express.json()); // Único middleware necesario para procesar el req.body estándar en JSON
+// Forzar la respuesta a OPTIONS para el preflight
+app.options('*', cors()); 
+
+// Asegurar que el middleware de cors se aplique a todo
+app.use(cors());
+app.options('*', cors());
 
 // 2. CONEXIÓN A LA BASE DE DATOS
+// En lugar de escribir la contraseña, usa process.env
 const db = mysql.createConnection({
-    host: 'bavlfmstydp3ebghysz8-mysql.services.clever-cloud.com',
-    user: 'upkauwp7eliqtarn',
-    password: 'SUAxeje946ivkR2VmKtZ', 
-    database: 'bavlfmstydp3ebghysz8',
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
     port: 3306
 });
 
