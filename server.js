@@ -1,14 +1,21 @@
 const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
-
 const app = express();
 
-app.use(cors({
-  origin: '*', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Configuración de CORS ultra permisiva para desarrollo/producción inicial
+app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    
+    // Responder a peticiones de verificación de seguridad (preflight)
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
+
 app.use(express.json());
 
 // 2. CONEXIÓN A LA BASE DE DATOS
