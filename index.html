@@ -643,7 +643,6 @@
             }
         }
 
-        // FUNCIÓN DE ALERTAS AGREGADA PARA EVITAR ERRORES DE PÁGINA CONGELADA
         function showToast(message, type) {
             alert(`[${type.toUpperCase()}] ${message}`);
         }
@@ -683,9 +682,10 @@
             const registerBtn = document.getElementById('register-btn');
             registerBtn.disabled = true;
 
+            // Cambio estratégico del tipo de contenido a text/plain para evitar el bloqueo del preflight de CORS
             fetch('https://app-56a08756-b255-44fc-bb88-dd8afb7b2853.cleverapps.io/api/register', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'text/plain' },
                 body: JSON.stringify({ nombre: nombre, email: email })
             })
             .then(response => {
@@ -738,12 +738,11 @@
             if (activeBtn) activeBtn.classList.add('text-lime-400');
         }
 
-        // LIMPIA EL CONTENEDOR ANTES DE RENDERIZAR (ELIMINA DUPLICADOS)
         function renderWalletMethods() {
             const container = document.getElementById('wallet-methods-list');
             if (!container) return; 
             
-            container.innerHTML = ''; // <-- LIMPIEZA EFECTUADA
+            container.innerHTML = ''; 
             
             paymentMethods.forEach((pm) => {
                 let methodIcon = pm.type === 'card' 
