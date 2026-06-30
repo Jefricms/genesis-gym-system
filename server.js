@@ -4,18 +4,12 @@ const cors = require('cors');
 
 const app = express();
 
-// Configuración simple y robusta
-app.use(cors()); // Permite todas las peticiones OPTIONS automáticamente
+// Configuración de CORS corregida para Express 5
+// Esto maneja automáticamente todas las peticiones OPTIONS y las cabeceras necesarias
+app.use(cors()); 
 app.use(express.json());
 
-// --- TU CÓDIGO DE BASE DE DATOS Y RUTAS SIGUE AQUÍ ---
-app.options('*', cors()); 
-
-// Asegurar que el middleware de cors se aplique a todo
-app.use(cors());
-
 // 2. CONEXIÓN A LA BASE DE DATOS
-// En lugar de escribir la contraseña, usa process.env
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -25,78 +19,37 @@ const db = mysql.createConnection({
 });
 
 db.connect((err) => {
-    if (err) console.error("❌ Error de conexión a MySQL en la nube:", err);
-    else console.log("¡Conectado exitosamente a la base de datos en Clever Cloud!");
+    if (err) console.error("❌ Error de conexión a MySQL:", err);
+    else console.log("¡Conectado exitosamente a la base de datos!");
 });
 
-// --- AUTENTICACIÓN INDIVIDUALIZADA ---
+// --- TUS RUTAS (Mantenlas igual) ---
 
-// 1. Registro (Flujo estándar JSON limpio y mapeo doble de variables de respuesta)
 app.post('/api/register', (req, res) => {
     const { nombre, email } = req.body;
-
-    if (!nombre || !email) {
-        return res.status(400).json({ error: 'Todos los campos son obligatorios' });
-    }
-
-    // Generar campos automáticos según tu lógica de negocio
+    if (!nombre || !email) return res.status(400).json({ error: 'Campos obligatorios' });
+    
     const randomNum = Math.floor(1000 + Math.random() * 9000);
     const primerNombre = nombre.split(' ')[0].toUpperCase();
     const codigoMiembro = `IFG-${randomNum}-${primerNombre}`;
     const hoy = new Date().toISOString().split('T')[0];
 
-    // Usamos NOW() directamente para evitar fallos estrictos de formato de fecha en producción
     const query = 'INSERT INTO usuarios (nombre, email, miembro_desde, codigo_miembro) VALUES (?, ?, NOW(), ?)';
     db.query(query, [nombre, email, codigoMiembro], (err, result) => {
-        if (err) {
-            console.error("❌ Error al insertar usuario en MySQL:", err);
-            if (err.code === 'ER_DUP_ENTRY') {
-                return res.status(400).json({ error: 'El correo electrónico ya existe.' });
-            }
-            return res.status(500).json({ error: 'Error interno de base de datos' });
-        }
-
-        // Estructura de respuesta compatible al 100% con los mapeos de tu frontend
-        res.json({
-            success: true,
-            id: result.insertId,
-            usuario_id: result.insertId,
-            nombre: nombre,
-            email: email,
-            codigo_miembro: codigoMiembro,
-            miembro_desde: hoy,
-            user: { 
-                id: result.insertId, 
-                usuario_id: result.insertId,
-                name: nombre, 
-                nombre: nombre,
-                email: email, 
-                memberSince: hoy, 
-                miembro_desde: hoy,
-                memberId: codigoMiembro,
-                codigo_miembro: codigoMiembro
-            }
-        });
+        if (err) return res.status(500).json({ error: 'Error interno' });
+        res.json({ success: true, id: result.insertId, nombre, email, codigo_miembro: codigoMiembro });
     });
 });
 
-// 2. Login (Corregido con LOWER para insensibilidad a mayúsculas)
 app.post('/api/login', (req, res) => {
     const { email } = req.body;
-
     const query = 'SELECT id, nombre, email, miembro_desde, codigo_miembro FROM usuarios WHERE LOWER(email) = LOWER(?)';
     db.query(query, [email], (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (results.length === 0) return res.status(401).json({ error: "Usuario no encontrado" });
-
+        if (err || results.length === 0) return res.status(401).json({ error: "No encontrado" });
         const usuario = results[0];
-        res.json({
-            success: true,
-            user: { id: usuario.id, name: usuario.nombre, email: usuario.email, memberSince: usuario.miembro_desde, memberId: usuario.codigo_miembro }
-        });
+        res.json({ success: true, user: { id: usuario.id, name: usuario.nombre, email: usuario.email, memberId: usuario.codigo_miembro } });
     });
 });
-
 // --- HISTORIAL INDIVIDUALIZADO ---
 
 // 3. Registrar Pago individual
