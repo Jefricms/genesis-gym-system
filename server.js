@@ -17,7 +17,9 @@ app.use((req, res, next) => {
     next();
 });
 
-app.use(express.json()); // Indispensable para leer req.body
+// Middlewares para lectura de cuerpos de peticiones
+app.use(express.json()); // Indispensable para leer req.body en JSON estándar
+app.use(express.text({ type: '*/*' })); // Permite capturar e interpretar peticiones enviadas como text/plain
 
 // 2. CONEXIÓN A LA BASE DE DATOS
 const db = mysql.createConnection({
@@ -35,9 +37,20 @@ db.connect((err) => {
 
 // --- AUTENTICACIÓN INDIVIDUALIZADA ---
 
-// 1. Registro (Optimizado con doble mapeo de propiedades para evitar congelamiento del frontend)
+// 1. Registro (Optimizado para procesar text/plain y JSON sin dar 404 ni problemas de CORS)
 app.post('/api/register', (req, res) => {
-    const { nombre, email } = req.body;
+    let datos = req.body;
+
+    // Si los datos llegan como un string debido al Content-Type de texto plano, se parsean manualmente
+    if (typeof req.body === 'string') {
+        try {
+            datos = JSON.parse(req.body);
+        } catch (e) {
+            return res.status(400).json({ error: 'Formato de datos de texto plano inválido.' });
+        }
+    }
+
+    const { nombre, email } = datos;
 
     if (!nombre || !email) {
         return res.status(400).json({ error: 'Todos los campos son obligatorios' });
