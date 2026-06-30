@@ -7,10 +7,10 @@ app.use(cors());
 app.use(express.json()); // Indispensable para leer req.body
 
 const db = mysql.createConnection({
-    host: 'bve7byp8b898bov6wexg-mysql.services.clever-cloud.com',
-    user: 'uymf7pggvj6b66hy',
-    password: 'AQUÍ_COPIAS_LA_CONTRASEÑA_QUE_TE_DIO_CLEVER_CLOUD', // Haz clic en el ojo tachado de tu pantalla para verla y copiarla completa
-    database: 'bve7byp8b898bov6wexg',
+    host: 'bavlfmstydp3ebghysz8-mysql.services.clever-cloud.com',
+    user: 'upkauwp7eliqtarn',
+    password: 'LA_CONTRASEÑA_QUE_SALE_AL_DARLE_CLIC_AL_CANDADO_NARANJA', 
+    database: 'bavlfmstydp3ebghysz8',
     port: 3306
 });
 
