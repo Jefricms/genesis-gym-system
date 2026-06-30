@@ -9,7 +9,7 @@ app.use(express.json()); // Indispensable para leer req.body
 const db = mysql.createConnection({
     host: 'bavlfmstydp3ebghysz8-mysql.services.clever-cloud.com',
     user: 'upkauwp7eliqtarn',
-    password: 'LA_CONTRASEÑA_QUE_SALE_AL_DARLE_CLIC_AL_CANDADO_NARANJA', 
+    password: 'SUAxeje946ivkR2VmKtZ', 
     database: 'bavlfmstydp3ebghysz8',
     port: 3306
 });
